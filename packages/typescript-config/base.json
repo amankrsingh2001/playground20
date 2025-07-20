@@ -4,6 +4,10 @@
     "declaration": true,
     "declarationMap": true,
     "esModuleInterop": true,
+    "baseUrl": "../..", 
+    "paths": {
+      "@repo/interface": ["packages/interface/src/index.ts"]
+    },
     "incremental": false,
     "isolatedModules": true,
     "lib": ["es2022", "DOM", "DOM.Iterable"],
