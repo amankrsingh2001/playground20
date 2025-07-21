@@ -12,7 +12,7 @@ app.post('/',async(req, res)=>{
                 lastName:"Aman",
                 password:"Aman",
                 email:"Aman12@gmail.com",
-                profieImage:"blablabla"
+                profileImage:"string"
             }
         })
         res.send("Ho gya")
