@@ -1,58 +1,65 @@
-# Turborepo Tailwind CSS starter
+# 🧠 Playground
 
-This Turborepo starter is maintained by the Turborepo core team.
+> Playground lets you connect with fellow aspirants and prepare for your exams through a real-time question-solving game. Track your progress, compete live, and stay motivated with a community of learners.
 
-## Using this example
+---
 
-Run the following command:
+## 🚀 Getting Started
 
-```sh
-npx create-turbo@latest -e with-tailwind
+Follow these steps to run the project locally.
+
+---
+
+### 🛠️ Prerequisites
+
+Make sure you have the following installed:
+
+- [Node.js](https://nodejs.org/) (v18+)
+- [Docker](https://www.docker.com/)
+- [PNPM](https://pnpm.io/) or [NPM](https://docs.npmjs.com/)
+- [TurboRepo](https://turbo.build/repo) (already included in `devDependencies`)
+
+---
+
+## 🛠️ Environment Setup
+
+### ⚙️ Environment Variables
+
+Create a `.env` file inside the `packages/db` directory with the following content:
+
+```env
+# Replace the following with your actual PostgreSQL connection string
+
+DATABASE_URL="postgresql://<USERNAME>:<PASSWORD>@<HOST>:<PORT>/<DB_NAME>?sslmode=require"
+ ```
+
+
+🌐 Using NeonDB or Other Cloud PostgreSQL Providers
+If you're using a cloud database like NeonDB:
+
+Go to your Neon dashboard and copy the PostgreSQL connection URL.
+
+Paste the URL into the DATABASE_URL inside your .env file (packages/db/.env).
+
+Navigate to the packages/db directory and run the following command to apply the migrations:
+
+```bash
+cd packages/db
+npx prisma migrate deploy
 ```
 
-## What's inside?
 
-This Turborepo includes the following packages/apps:
+### 🐳 Using Docker
 
-### Apps and Packages
+If you're running PostgreSQL with Docker (using the provided `docker-compose.yml` file), follow these steps after starting the container:
 
-- `docs`: a [Next.js](https://nextjs.org/) app with [Tailwind CSS](https://tailwindcss.com/)
-- `web`: another [Next.js](https://nextjs.org/) app with [Tailwind CSS](https://tailwindcss.com/)
-- `ui`: a stub React component library with [Tailwind CSS](https://tailwindcss.com/) shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+1. Start Docker:
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Building packages/ui
-
-This example is set up to produce compiled styles for `ui` components into the `dist` directory. The component `.tsx` files are consumed by the Next.js apps directly using `transpilePackages` in `next.config.ts`. This was chosen for several reasons:
-
-- Make sharing one `tailwind.config.ts` to apps and packages as easy as possible.
-- Make package compilation simple by only depending on the Next.js Compiler and `tailwindcss`.
-- Ensure Tailwind classes do not overwrite each other. The `ui` package uses a `ui-` prefix for it's classes.
-- Maintain clear package export boundaries.
-
-Another option is to consume `packages/ui` directly from source without building. If using this option, you will need to update the `tailwind.config.ts` in your apps to be aware of your package locations, so it can find all usages of the `tailwindcss` class names for CSS compilation.
-
-For example, in [tailwind.config.ts](packages/tailwind-config/tailwind.config.ts):
-
-```js
-  content: [
-    // app content
-    `src/**/*.{js,ts,jsx,tsx}`,
-    // include packages if not transpiling
-    "../../packages/ui/*.{js,ts,jsx,tsx}",
-  ],
+```bash
+cd packages/db
+npx prisma migrate deploy
 ```
 
-If you choose this strategy, you can remove the `tailwindcss` and `autoprefixer` dependencies from the `ui` package.
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [Tailwind CSS](https://tailwindcss.com/) for styles
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+Make sure your .env file inside packages/db is configured like this:
+```bash
+DATABASE_URL="postgresql://postgres:mysecretpassword@localhost:5432/postgres"
