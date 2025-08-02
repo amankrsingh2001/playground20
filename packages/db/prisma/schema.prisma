@@ -8,13 +8,12 @@ datasource db {
 }
 
 model User {
-  id           String     @id @default(uuid())
-  email        String     @unique
-  password     String
-  firstName    String
-  lastName     String
-  profileImage String
-  roomUsers    RoomUser[]
+  id                String       @id @default(uuid())
+  email             String       @unique
+  password          String
+  fullName          String
+  profileImage      String?
+  roomUsers         RoomUser[]
   hostedPlaygrounds Playground[]
 }
 
@@ -44,11 +43,11 @@ model RoomUser {
 model Question {
   id            String   @id @default(uuid())
   text          String
-  options       String[] 
+  options       String[]
   correctOption String
   category      String?
   difficulty    String?
-  answer Answer[]
+  answer        Answer[]
 }
 
 model Answer {
