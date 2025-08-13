@@ -1,9 +1,11 @@
 import { Router } from "express";
-import { signUp } from "../controller/userController";
+import { loginUser, registerUser } from "../controller/userController";
+
+
 
 
 const userRouter = Router()
 
-userRouter.post('/signup', signUp)
-
+userRouter.post('/signup', registerUser)
+userRouter.post('/signin', loginUser)
 export {userRouter}

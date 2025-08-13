@@ -1,4 +1,5 @@
 import {z} from 'zod'
+import { ZodError } from "zod";
 
 export const signUpValidation = z.object({
     email:z.string().email(),
@@ -7,3 +8,21 @@ export const signUpValidation = z.object({
     profileImage:z.string().optional()
 })
 
+
+export const loginValidation = z.object({
+    email:z.string().email(),
+    password:z.string()
+})
+
+export const formatZodErrors = (error: ZodError) => {
+  const formattedErrors: Record<string, string> = {};
+
+  error.issues.forEach(issue => {
+    const field = issue.path[0]; // top-level only
+    if (typeof field === "string" && !formattedErrors[field]) {
+      formattedErrors[field] = issue.message;
+    }
+  });
+
+  return formattedErrors;
+};
