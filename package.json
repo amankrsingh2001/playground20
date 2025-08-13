@@ -22,5 +22,10 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@types/nodemailer": "^6.4.17",
+    "nodemailer": "^7.0.5",
+    "zod": "^4.0.14"
+  }
 }

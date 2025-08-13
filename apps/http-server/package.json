@@ -3,16 +3,25 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-   "build":"tsc -b",
-   "dev":"tsc -b && node dist/index.js"
+    "build": "tsc -b",
+    "dev": "tsc -b && node dist/index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@repo/db":"*",
+    "@repo/db": "*",
+    "@repo/interface": "*",
+    "@repo/zod": "*",
+    "@types/bcrypt": "^6.0.0",
+    "@types/cookie-parser": "^1.4.9",
     "@types/express": "^5.0.3",
-    "express": "^5.1.0"
+    "@types/jsonwebtoken": "^9.0.10",
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.1.0",
+    "interface": "^1.2.1",
+    "jsonwebtoken": "^9.0.2"
   }
 }
