@@ -14,15 +14,17 @@ export const loginValidation = z.object({
     password:z.string()
 })
 
+export const mailDataValidation = z.object({
+  email:z.string().email()
+})
+
 export const formatZodErrors = (error: ZodError) => {
   const formattedErrors: Record<string, string> = {};
-
   error.issues.forEach(issue => {
     const field = issue.path[0]; // top-level only
     if (typeof field === "string" && !formattedErrors[field]) {
       formattedErrors[field] = issue.message;
     }
   });
-
   return formattedErrors;
 };
