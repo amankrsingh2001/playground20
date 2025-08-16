@@ -12,16 +12,19 @@
   "description": "",
   "dependencies": {
     "@repo/db": "*",
-    "@repo/interface": "*",
+    "@repo/redis": "*",
     "@repo/zod": "*",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.9",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/otp-generator": "^4.0.2",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "express": "^5.1.0",
     "interface": "^1.2.1",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "otp-generator": "^4.0.1",
+    "uuidjs": "^5.1.0"
   }
 }
