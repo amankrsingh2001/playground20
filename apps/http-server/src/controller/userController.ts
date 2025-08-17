@@ -8,9 +8,6 @@ import { Apireponse } from "../utils/ApiResponse";
 import jwt from "jsonwebtoken"
 
 
-
-
-
 export const registerUser = asyncHandler(async(req:Request, res:Response)=>{
     const userData = req.body;
     const {success, error} = signUpValidation.safeParse(userData)
