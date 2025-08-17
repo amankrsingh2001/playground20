@@ -6,7 +6,16 @@
       "dependsOn": ["^build", "^db:generate"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
-      "env": ["DATABASE_URL","REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "JWT_SECRET"]
+      "env": [
+        "DATABASE_URL",
+        "REDIS_HOST",
+        "REDIS_PORT",
+        "REDIS_PASSWORD",
+        "JWT_SECRET",
+        "MAIL_USER",
+        "MAIL_PASS,",
+        "MAIL_HOST"
+      ]
     },
     "lint": {
       "dependsOn": ["^lint"]
@@ -18,15 +27,16 @@
       "dependsOn": ["^db:generate"],
       "cache": false,
       "persistent": true
-    },"db:generate": {
-    "cache": false
-  },
-  "db:migrate": {
-    "cache": false,
-    "persistent": true 
-  },
-  "db:deploy": {
-    "cache": false
-  }
+    },
+    "db:generate": {
+      "cache": false
+    },
+    "db:migrate": {
+      "cache": false,
+      "persistent": true
+    },
+    "db:deploy": {
+      "cache": false
+    }
   }
 }
