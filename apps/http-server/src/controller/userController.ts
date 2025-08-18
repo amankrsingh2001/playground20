@@ -14,7 +14,8 @@ import jwt from "jsonwebtoken";
 import { sendMail } from "../utils/mailSender";
 import otpGenerator from "otp-generator";
 
-import { UUID } from "uuidjs";
+import { v4 as uuidv4 } from "uuid";
+
 import { redisClient } from '@repo/redis';
 
 export const registerUser = asyncHandler(
@@ -105,23 +106,25 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // creating the JWT token
-  const sessionToken = jwt.sign({id:getFirstUser.id}, process.env.JWT_SECRET as string,{
-    expiresIn:"24h"
-  })
+  const { password, ...userWihoutPassword } = getFirstUser
+
+  const token = jwt.sign({
+    email: userWihoutPassword?.email,
+    fullName: userWihoutPassword?.fullName
+  }, process.env.JWT_SECRET as string)
 
     // creating randomAuthToken 
-    const uuid = UUID.generate();
+    const uuid = uuidv4();
     const accessToken = uuid.split('-').join('')
 
     // Save all the data in the redis DB for faster access
-    const {password, ...userWihoutPassword} = getFirstUser
     const redisDataObj = {
-        sessionToken,
-        user:userWihoutPassword
+      ...userWihoutPassword
     }
+
     await redisClient.set(`user:${accessToken}`,JSON.stringify(redisDataObj), "EX", 7 * 24 * 60 * 60)
 
-    res.status(200).cookie('accessToken', accessToken).json(new Apireponse(200, userWihoutPassword.id, "Login Successfully", true));
+  res.status(200).cookie('session-token', accessToken).json(new Apireponse(200, token, "Login Successfully", true));
 });
 
 
@@ -169,4 +172,8 @@ export const sendOtp = asyncHandler(async (req: Request, res: Response) => {
   throw new ApiError(500, "Failed to send OTP after multiple attempts");
 });
 
-
+export const getUserDetails = asyncHandler(async(req: Request, res: Response) => {
+    const data = req.body;
+    res.status(200).json(new Apireponse(200, {}, "success", true))
+    // const userDetails = req.auth;
+})
