@@ -1,14 +1,14 @@
 import { Router } from "express";
-import { getUserDetails, loginUser, registerUser, sendOtp } from "../controller/userController";
+import { AuthController} from "../controller/userController";
 
 
 
 
 const userRouter = Router()
 
-userRouter.post('/signup', registerUser)
-userRouter.post('/signin', loginUser)
-userRouter.post('/verify', sendOtp)
-userRouter.get("/userDetails", getUserDetails);
+userRouter.post('/signup', AuthController.register)
+userRouter.post('/signin', AuthController.login)
+userRouter.post('/verify', AuthController.sendOtp)
+userRouter.get("/userDetails", AuthController.getCurrentUser);
 
 export {userRouter}

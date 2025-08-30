@@ -1,22 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import { ApiError } from "../utils/ApiError";
-import { getValue } from "@repo/redis";
+import { redis, session } from "@repo/redis";
 import { UserInfo } from "@repo/types";
 
 const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
-    let sessionToken: string | undefined;
-
+    const sessionToken: string | undefined = req.cookies?.['session-token'];
     // Parse cookie header to get sessionToken value
-    const cookieHeader = req.headers.cookie;
-    if (cookieHeader) {
-        const cookies = cookieHeader.split(";").map(cookie => cookie.trim());
-        for (const cookie of cookies) {
-            if (cookie.startsWith("session-token=")) {
-                sessionToken = cookie.replace("session-token=", "");
-                break;
-            }
-        }
-    }
     console.log("[AUTH] checking header session token - [path: %s, token: %s]", req.path, sessionToken)
     const nonSecurePath = [
         "/api/v1/user/signup",
@@ -27,14 +16,27 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
         throw new ApiError(401, "UNAUTHORIZED_ACCESS");
     }
 
-    const userDetails: UserInfo = await getValue(`user:${sessionToken}`);
+    const userDetails = await session.validate(sessionToken);
 
     //Session not exist in the redis
-    if (!userDetails?.id) {
+    if (!userDetails?.valid) {  
         throw new ApiError(401, "UNAUTHORIZED_ACCESS");
     }
+
+    const userInfo: UserInfo = {
+        id: userDetails?.userId ?? "",
+        email: userDetails?.data?.email ?? "",
+        fullName: userDetails?.data?.fullName ?? "",
+        profileImage: userDetails?.data?.profileImage ?? "",
+    }
+
     req.auth = {
-        userInfo: userDetails,
+        userInfo,
+    }
+    req.context = {
+        deviceId: userDetails?.data?.deviceId,
+        ipAddress: userDetails?.data?.ipAddress,
+        userAgent: userDetails?.data?.userAgent,
     }
     next();
 }

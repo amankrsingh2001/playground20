@@ -11,8 +11,15 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@repo/logger": "*",
+    "@repo/db": "*",
+    "@repo/redis": "*",
+    "@repo/types": "*",
+    "@repo/zod": "*",
+    "@types/winston": "^2.4.4",
     "@types/ws": "^8.18.1",
-    "ws": "^8.18.3",
-    "@repo/redis":"*"
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0",
+    "ws": "^8.18.3"
   }
 }
