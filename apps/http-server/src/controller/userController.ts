@@ -1,3 +1,5 @@
+// controllers/AuthController.ts
+
 import { Request, Response } from "express";
 import {
   formatZodErrors,
@@ -7,173 +9,306 @@ import {
 } from "@repo/zod";
 import { asyncHandler } from "../utils/AsyncHandler";
 import { ApiError } from "../utils/ApiError";
-import { prismaClient } from "@repo/db";
+import { prismaClient, User } from "@repo/db";
 import bcrypt from "bcrypt";
 import { Apireponse } from "../utils/ApiResponse";
-import jwt from "jsonwebtoken";
 import { sendMail } from "../utils/mailSender";
 import otpGenerator from "otp-generator";
-
+import { session, redis } from "@repo/redis";
 import { v4 as uuidv4 } from "uuid";
+import { UserInfo } from "@repo/types";
 
-import { redisClient } from '@repo/redis';
 
-export const registerUser = asyncHandler(
-  async (req: Request, res: Response) => {
+// Request body interfaces
+interface RegisterBody {
+  fullName: string;
+  email: string;
+  password: string;
+  profileImage?: string;
+  username: string;
+}
+
+interface LoginBody {
+  email: string;
+  password: string;
+}
+
+interface MailBody {
+  email: string;
+}
+
+interface UserResponse {
+  id: string;
+  fullName: string;
+  email: string;
+  profileImage?: string;
+  accessToken: string;
+}
+
+interface ResetPasswordBody {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
+export class AuthController {
+  /**
+   * Register a new user
+   */
+  static register = asyncHandler(async (req: Request<{}, {}, RegisterBody>, res: Response) => {
     const userData = req.body;
-    const { success, error } = signUpValidation.safeParse(userData);
 
-    if (!success && error) {
-      const formatedErrors = formatZodErrors(error);
-      console.log(formatedErrors);
-      throw new ApiError(400, "validation failed", formatedErrors);
+    // Validate input
+    const { success, error } = signUpValidation.safeParse(userData);
+    if (!success) {
+      const formattedErrors = formatZodErrors(error!);
+      throw new ApiError(400, "Validation failed", formattedErrors);
     }
-    // Find if user is existing
-    const user = await prismaClient.user.findFirst({
-      where: {
-        email: userData.email,
-      },
+
+    // Check if user already exists
+    const existingUser = await prismaClient.user.findFirst({
+      where: { email: userData.email },
     });
 
-    // Throw error if user already exist
-    if (user && user.id) {
-      throw new ApiError(409, "Email Already registered");
+    if (existingUser) {
+      throw new ApiError(409, "Email already registered");
     }
 
-    // hash password if we are creating new account
-    const salRound = 10;
-    const hashPassword = await bcrypt.hash(userData.password, salRound);
+    // Check if username already exists
+    const existingUsername = await prismaClient.user.findUnique({
+      where: { username: userData.username }
+    });
 
-    // Create new user
-    const newUser = await prismaClient.user.create({
+    if (existingUsername) {
+      throw new ApiError(409, "username already taken");
+    }
+
+    // Hash password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(userData.password, saltRounds);
+
+    // Create user
+    const user = await prismaClient.user.create({
       data: {
+        id: uuidv4(),
         email: userData.email,
-        password: hashPassword,
+        password: hashedPassword,
         fullName: userData.fullName,
+        username: userData.username,
         profileImage:
           userData.profileImage ||
-          `https://api.dicebear.com/5.x/initials/svg?seed=${userData.fullName} `,
+          `https://api.dicebear.com/6.x/initials/svg?seed=${encodeURIComponent(
+            userData.fullName
+          )}`,
       },
     });
 
-    // Check if user is created or not
-    if (!newUser || !newUser.id) {
-      throw new ApiError(500, "Failed to create Account");
+    if (!user.id) {
+      throw new ApiError(500, "Failed to create account");
     }
-
-    // Send success if user is created
 
     return res
       .status(201)
-      .json(new Apireponse(200, {}, "Account created Successfully", true));
-  }
-);
-
-export const loginUser = asyncHandler(async (req: Request, res: Response) => {
-  const data = req.body;
-
-  // Validating incoming data
-  const payloadParser = loginValidation.safeParse(data);
-
-  // If the incoming data isn't valid sending the error
-  if (!payloadParser.success && payloadParser.error) {
-    const formatedErrors = formatZodErrors(payloadParser.error);
-    console.log(formatedErrors);
-    throw new ApiError(400, "validation failed", formatedErrors);
-  }
-
-  // Fetching the user from the db
-  const getFirstUser = await prismaClient.user.findFirst({
-    where: {
-      email: payloadParser.data.email,
-    },
+      .json(new Apireponse(201, {}, "Account created successfully", true));
   });
 
-  if (!getFirstUser?.email || !getFirstUser?.password) {
-    throw new ApiError(400, "Password not found", {
-      reason:
-        "This account does not have a password set (possible social login)",
+  /**
+   * Login user and create Redis session
+   */
+  static login = asyncHandler(async (req: Request<{}, {}, LoginBody>, res: Response) => {
+    const { email, password } = req.body;
+    const context = req.context || {};
+
+    // Validate input
+    const result = loginValidation.safeParse({ email, password });
+    if (!result.success) {
+      const errors = formatZodErrors(result.error);
+      throw new ApiError(400, "Validation failed", errors);
+    }
+
+    // Find user
+    const user = await prismaClient.user.findFirst({
+      where: { email },
     });
-  }
-  const validatePassword = bcrypt.compare(
-    getFirstUser?.password,
-    payloadParser.data.password
-  );
 
-  // Throw error if password isn't valid
-  if(!validatePassword){
-    throw new ApiError(401,"Credentails ins't valid")
-  }
-
-  // creating the JWT token
-  const { password, ...userWihoutPassword } = getFirstUser
-
-  const token = jwt.sign({
-    email: userWihoutPassword?.email,
-    fullName: userWihoutPassword?.fullName
-  }, process.env.JWT_SECRET as string)
-
-    // creating randomAuthToken 
-    const uuid = uuidv4();
-    const accessToken = uuid.split('-').join('')
-
-    // Save all the data in the redis DB for faster access
-    const redisDataObj = {
-      ...userWihoutPassword
+    if (!user) {
+      throw new ApiError(401, "Invalid credentials");
     }
 
-    await redisClient.set(`user:${accessToken}`,JSON.stringify(redisDataObj), "EX", 7 * 24 * 60 * 60)
+    // ❌ Bug fix: bcrypt.compare(password, hash), not (hash, password)
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new ApiError(401, "Invalid credentials");
+    }
 
-  res.status(200).cookie('session-token', accessToken).json(new Apireponse(200, token, "Login Successfully", true));
-});
+    // Prepare session metadata
+    const metaData = {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      deviceId: context.deviceId,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    };
 
+    // Create Redis session token
+    const accessToken = await session.create(user.id, metaData);
 
-export const sendOtp = asyncHandler(async (req: Request, res: Response) => {
-  const data = req.body;
-  const payloadParser = mailDataValidation.safeParse(data);
+    // Set secure cookie
+    res.cookie("session-token", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    });
 
-  // Checking validation for the mail Sending data
+    const userResponse: UserResponse = {
+      id: user.id,
+      accessToken,
+      fullName: user.fullName,
+      email: user.email,
+      profileImage: user.profileImage || undefined,
+    };
 
-  if (!payloadParser.success && payloadParser.error) {
-    const formatedErrors = formatZodErrors(payloadParser.error);
-    console.log(formatedErrors);
-    throw new ApiError(400, "validation failed", formatedErrors);
-  }
-
-  // Creating the six digit otp for sending it to the user
-
-  const otp = otpGenerator.generate(6, {
-    upperCaseAlphabets: false,
-    lowerCaseAlphabets: false,
-    specialChars: false,
+    return res
+      .status(200)
+      .json(new Apireponse(200, userResponse, "Login successful", true));
   });
 
-  // trying to send the mail for 3 consecutive times
-  const MAX_RETRIES = 3;
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    const result = await sendMail(
-      payloadParser.data.email,
-      "Playground Email",
-      otp
-    );
+  /**
+   * Send OTP to email
+   */
+  static sendOtp = asyncHandler(async (req: Request<{}, {}, MailBody>, res: Response) => {
+    const { email } = req.body;
 
-    if (result.success) {
+    const result = mailDataValidation.safeParse({ email });
+    if (!result.success) {
+      const errors = formatZodErrors(result.error);
+      throw new ApiError(400, "Validation failed", errors);
+    }
+
+    const otp = otpGenerator.generate(6, {
+      upperCaseAlphabets: false,
+      lowerCaseAlphabets: false,
+      specialChars: false,
+    });
+
+    const MAX_RETRIES = 3;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const mailResult = await sendMail(email, "Playground OTP", otp);
+      if (mailResult.success) {
+        // In real app: store OTP in Redis with expiry
+        return res
+          .status(200)
+          .json(new Apireponse(200, { otpSent: true }, "OTP sent successfully", true));
+      }
+
+      if (attempt < MAX_RETRIES) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+      }
+    }
+
+    throw new ApiError(500, "Failed to send OTP after multiple attempts");
+  });
+
+  /**
+   * Get current logged-in user
+   */
+  static getCurrentUser = asyncHandler(async (req: Request, res: Response) => {
+    const user = req.auth as UserInfo;
+    console.log("🚀 ~ AuthController ~ user:", user)
+    if (!user) {
+      throw new ApiError(401, "Not authenticated");
+    }
+
+    // Optional: fetch fresh user data from DB
+    // const dbUser = await prismaClient.user.findUnique({
+    //   where: { id: user.id },
+    //   select: {
+    //     id: true,
+    //     fullName: true,
+    //     email: true,
+    //     profileImage: true,
+    //   },
+    // });
+
+    // if (!dbUser) {
+    //   throw new ApiError(404, "User not found");
+    // }
+
+    return res
+      .status(200)
+      .json(new Apireponse(200, {}, "User details retrieved", true));
+  });
+
+
+  /**
+ * Logout user by destroying Redis session
+ */
+  static logout = asyncHandler(async (req: Request, res: Response) => {
+    const token = req.cookies["session-token"] || req.headers.authorization?.split(" ")[1];
+
+    if (token) {
+      try {
+        await session.destroy(token); // Destroy Redis session
+      } catch (err) {
+        // Ignore if session doesn't exist
+      }
+    }
+
+    res.clearCookie("session-token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+
+    return res
+      .status(200)
+      .json(new Apireponse(200, {}, "Logged out successfully", true));
+  });
+
+  static forgotPassword = asyncHandler(async (req: Request<{}, {}, MailBody>, res: Response) => {
+    const { email } = req.body;
+
+    const result = mailDataValidation.safeParse({ email });
+    if (!result.success) {
+      const errors = formatZodErrors(result.error);
+      throw new ApiError(400, "Validation failed", errors);
+    }
+
+    const user = await prismaClient.user.findUnique({ where: { email } });
+    if (!user) {
+      // Don't reveal if user exists
       return res
-        .status(201)
-        .json(new Apireponse(200, otp, "Otp sent successfully", true));
+        .status(200)
+        .json(new Apireponse(200, {}, "If email exists, reset link was sent", true));
     }
 
-    // optional: wait before retrying (exponential backoff)
-    if (attempt < MAX_RETRIES) {
-      const delay = attempt * 1000; // 1s, then 2s, then 3s
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    }
-  }
-  throw new ApiError(500, "Failed to send OTP after multiple attempts");
-});
+    const otp = otpGenerator.generate(6, {
+      upperCaseAlphabets: false,
+      lowerCaseAlphabets: false,
+      specialChars: false,
+    });
 
-export const getUserDetails = asyncHandler(async(req: Request, res: Response) => {
-    const data = req.body;
-    res.status(200).json(new Apireponse(200, {}, "success", true))
-    // const userDetails = req.auth;
-})
+    await redis.set(`reset_otp:${email}`, otp, 600); // 10 min expiry
+
+    const MAX_RETRIES = 3;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const mailResult = await sendMail(
+        email,
+        "Password Reset",
+        `Your password reset OTP is: ${otp}`
+      );
+      if (mailResult.success) {
+        break;
+      }
+      if (attempt < MAX_RETRIES) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+      }
+    }
+
+    return res
+      .status(200)
+      .json(new Apireponse(200, {}, "Password reset OTP sent", true));
+  });
+}

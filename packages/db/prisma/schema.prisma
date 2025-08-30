@@ -7,78 +7,287 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id                String       @id @default(uuid())
-  email             String       @unique
-  password          String
-  fullName          String
-  profileImage      String?
-  roomUsers         RoomUser[]
-  hostedPlaygrounds Playground[]
+// ======================
+// ENUMS
+// ======================
+
+enum GameMode {
+  CLASSIC        // All players play until end
+  BATTLE_ROYALE  // Elimination style
 }
 
-model Playground {
-  id        String     @id @default(uuid())
-  slug      String     @unique
-  status    Status     @default(waiting)
-  createdAt DateTime   @default(now())
-  hostId    String
-  host      User?      @relation(fields: [hostId], references: [id])
-  users     RoomUser[]
-  settings  Setting[]
+enum RoomType {
+  PUBLIC
+  PRIVATE
 }
 
-model RoomUser {
-  id           String       @id @default(uuid())
-  user         User         @relation(fields: [userId], references: [id])
-  userId       String
-  playground   Playground   @relation(fields: [playgroundId], references: [id])
-  playgroundId String
-  status       PlayerStatus @default(active)
-  score        Int          @default(0)
-  joinedAt     DateTime     @default(now())
-  answers      Answer[]
-}
-
-model Question {
-  id            String   @id @default(uuid())
-  text          String
-  options       String[]
-  correctOption String
-  category      String?
-  difficulty    String?
-  answer        Answer[]
-}
-
-model Answer {
-  id             String   @id @default(uuid())
-  roomUser       RoomUser @relation(fields: [roomUserId], references: [id])
-  roomUserId     String
-  question       Question @relation(fields: [questionId], references: [id])
-  questionId     String
-  selectedOption String
-  isCorrect      Boolean
-  answeredAt     DateTime @default(now())
-  questionNo     Int // Which round (like question #1, 2, etc.)
-}
-
-model Setting {
-  id              String     @id @default(uuid())
-  questionLimit   Int        @default(20)
-  timePerQuestion Int        @default(45)
-  playground      Playground @relation(fields: [playgroundId], references: [id])
-  playgroundId    String
-}
-
-enum Status {
-  waiting
-  active
-  ended
+enum RoomStatus {
+  WAITING
+  ACTIVE
+  ENDED
 }
 
 enum PlayerStatus {
-  active
-  eliminated
-  left
-  afk
+  WAITING    // Joined but not ready
+  READY      // Ready to play
+  ACTIVE     // Playing
+  ELIMINATED // Eliminated (Battle Royale)
+  LEFT       // Left room
+  AFK        // Inactive
 }
+
+enum Difficulty {
+  EASY     // 1
+  MEDIUM   // 2
+  HARD     // 3
+  EXPERT   // 4
+  MASTER   // 5
+}
+
+enum QuestionCategory {
+  SCIENCE
+  HISTORY
+  GEOGRAPHY
+  SPORTS
+  ENTERTAINMENT
+  TECHNOLOGY
+  LITERATURE
+  ART
+  GENERAL
+}
+
+enum ScoringType {
+  SPEED      // Based on answer speed
+  ACCURACY   // Based on correct answers
+  HYBRID     // Speed + accuracy
+}
+
+// ======================
+// MODELS
+// ======================
+
+model User {
+  id String @unique @default(uuid())
+  email String @unique
+  username String @unique
+  password String 
+  fullName String
+  profileImage String?
+  createdAt DateTime @default(now())
+  lastLogin DateTime?
+  loginAttempt Int @default(0)
+  isBanned Boolean @default(false)
+  banReason String?
+  baExpiresAt DateTime?
+
+  //Relationships
+  rooms RoomUser[]
+  answers Answer[]
+  hostRooms     Room[]
+  scores Score[]
+  preferences   PlayerPreference[]
+  auditLogs     AuditLog[]
+  rewards Reward[]
+
+  @@index([email])
+  @@index([username])
+}
+
+model Room {
+  id String @unique @default(uuid())
+  slug String @unique
+  type RoomType @default(PUBLIC)
+  status RoomStatus @default(WAITING)
+  capacity Int @default(20)
+  inviteCode String @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  //Game settings
+  gameMode GameMode @default(CLASSIC)
+  questionLimit Int @default(20)
+  timePerQuestion Int @default(30)
+  difficultyProgression Boolean @default(false)
+  initialDifficulty  Difficulty @default(EASY)
+  eliminationCount Int?    // Battle Royale specific
+  difficultyIncrement Int? // Battle Royale specific
+
+  //Relations
+  members RoomUser[]
+  hostId      String
+  host        User         @relation(fields: [hostId], references: [id])
+  rounds Round[]
+  scores Score[]
+  rewards Reward[]
+  settings    RoomSetting?
+  preferences PlayerPreference[]
+
+
+  //Indexing
+  @@index([status])
+  @@index([type, status])
+  @@index([gameMode])
+}
+
+model RoomUser {
+  id String  @unique @default(uuid())
+  joinedAt DateTime @default(now())
+  status      PlayerStatus @default(WAITING)
+  readyAt DateTime
+  eliminatedAt DateTime
+  eliminatedRound Int
+
+  //Relationships
+  roomId String
+  room Room @relation(fields: [roomId], references: [id])
+  userId String
+  user User @relation(fields: [userId], references: [id])
+
+  //Indexing
+  @@unique([roomId, userId])
+  @@index([roomId, status])
+  @@index([userId, status])
+}
+
+model Question {
+  id String @unique @default(uuid())
+  test String
+  options Json
+  correctOption String
+  cotegory QuestionCategory
+  baseDifficulty Difficulty @default(EASY)
+  approved Boolean @default(false)
+  usedCount     Int               @default(0)
+  lastUsedAt    DateTime?
+  createdAt     DateTime          @default(now())
+
+  //relations
+  rounds Round[]
+  answers Answer[]
+
+  //Indexing
+  @@index([cotegory])
+  @@index([baseDifficulty])
+  @@index([approved])
+}
+
+model Round {
+  id String @unique @default(uuid())
+  number Int // Round #1, #2, etc.
+  difficulty Difficulty @default(EASY)
+  startTime     DateTime     @default(now())
+  endTime DateTime
+  active Boolean @default(true)
+
+  //Relationships
+  roomId String
+  room Room @relation(fields: [roomId], references: [id])
+  questionId String
+  question Question @relation(fields: [questionId], references: [id])
+  answers Answer[]
+  scores Score[]
+
+  @@index([roomId, active])
+  @@index([roomId, number])
+}
+
+model Answer {
+  id            String       @id @default(uuid())
+  selectedOption String
+  timeTakenMs   Int          // Milliseconds
+  isCorrect     Boolean
+  serverTimestamp DateTime   @default(now())
+  
+  // Relationships
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  roundId       String
+  round         Round        @relation(fields: [roundId], references: [id])
+  questionId    String
+  question      Question     @relation(fields: [questionId], references: [id])
+  
+  @@unique([userId, roundId]) // Only one answer per user per round
+  @@index([userId, roundId])
+  @@index([roundId, isCorrect])
+}
+
+model Score {
+  id            String       @id @default(uuid())
+  points        Int          // Calculated score
+  speedRank     Int?         // For speed-based scoring
+  accuracyRank  Int?         // For accuracy-based scoring
+  totalRank     Int?         // Overall rank
+  
+  // Relationships
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  roomId        String
+  room          Room         @relation(fields: [roomId], references: [id])
+  roundId       String?
+  round         Round?       @relation(fields: [roundId], references: [id])
+  
+  @@index([roomId, userId])
+  @@index([roomId, totalRank])
+}
+
+model RoomSetting {
+  id                  String   @id @default(uuid())
+  scoringType         ScoringType @default(SPEED)
+
+  // Relationships
+  roomId              String   @unique
+  room                Room     @relation(fields: [roomId], references: [id])
+  
+  @@index([scoringType])
+}
+
+model PlayerPreference {
+  id                  String      @id @default(uuid())
+  difficultyProgression Boolean  @default(false)
+  favoriteCategories  QuestionCategory[]
+  
+  // Relationships
+  userId              String
+  user                User        @relation(fields: [userId], references: [id])
+  roomId              String
+  room                Room        @relation(fields: [roomId], references: [id])
+  
+  @@unique([userId, roomId])
+}
+
+model AuditLog {
+  id            String    @id @default(uuid())
+  action      String
+  details     Json
+  timestamp   DateTime  @default(now())
+  
+  // Relationships
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([timestamp])
+}
+
+model Reward {
+  id            String    @id @default(uuid())
+  type          RewardType
+  value         Int
+  earnedAt      DateTime  @default(now())
+  
+  // Relationships
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  roomId        String?
+  room          Room?     @relation(fields: [roomId], references: [id])
+  
+  @@index([userId, type])
+}
+
+enum RewardType {
+  POINTS
+  BADGE
+  CURRENCY
+}
+
+

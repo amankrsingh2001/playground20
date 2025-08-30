@@ -14,7 +14,25 @@
         "JWT_SECRET",
         "MAIL_USER",
         "MAIL_PASS,",
-        "MAIL_HOST"
+        "MAIL_HOST",
+        "NODE_ENV",
+        "REDIS_PORT",
+        "REDIS_PASSWORD",
+        "REDIS_USERNAME",
+        "REDIS_DB",
+        "REDIS_TLS",
+        "REDIS_URL",
+        "REDIS_TLS",
+        "REDIS_CONNECTION_TTL",
+        "REDIS_CONNECT_TIMEOUT",
+        "REDIS_COMMAND_TIMEOUT",
+        "REDIS_MAX_RETRIES",
+        "REDIS_ENABLE_AUTO_PIPELINING",
+        "LOG_LEVEL",
+        "API_LOG_LEVEL",
+        "WS_LOG_LEVEL",
+        "BATTLE_LOG_LEVEL",
+        "HTTP_PORT"
       ]
     },
     "lint": {

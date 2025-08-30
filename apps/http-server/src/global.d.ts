@@ -1,14 +1,22 @@
-import "express";
+// types/express.d.ts
+import 'express';
 
-declare module "express-serve-static-core" {
-    interface Request {
-        auth?:{
-            userInfo?: {
-                id: string,
-                email: string,
-                fullName: string,
-                profileImage: string,
-            }
-        };
+declare global {
+    namespace Express {
+        interface Request {
+            auth?: {
+                userInfo?: {
+                    id: string;
+                    email: string;
+                    fullName: string;
+                    profileImage: string;
+                };
+            };
+            context?: {
+                deviceId?: string;
+                ipAddress?: string;
+                userAgent?: string;
+            };
+        }
     }
 }
