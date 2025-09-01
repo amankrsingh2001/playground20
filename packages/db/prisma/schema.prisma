@@ -62,12 +62,18 @@ enum ScoringType {
   HYBRID     // Speed + accuracy
 }
 
+enum RewardType {
+  POINTS
+  BADGE
+  CURRENCY
+}
+
 // ======================
 // MODELS
 // ======================
 
 model User {
-  id String @unique @default(uuid())
+  id String @id @default(uuid())
   email String @unique
   username String @unique
   password String 
@@ -94,14 +100,14 @@ model User {
 }
 
 model Room {
-  id String @unique @default(uuid())
+  id String @id @default(uuid())
   slug String @unique
   type RoomType @default(PUBLIC)
   status RoomStatus @default(WAITING)
   capacity Int @default(20)
   inviteCode String @unique
   createdAt DateTime @default(now())
-  expiresAt DateTime
+  expiresAt DateTime?
 
   //Game settings
   gameMode GameMode @default(CLASSIC)
@@ -122,7 +128,6 @@ model Room {
   settings    RoomSetting?
   preferences PlayerPreference[]
 
-
   //Indexing
   @@index([status])
   @@index([type, status])
@@ -130,7 +135,7 @@ model Room {
 }
 
 model RoomUser {
-  id String  @unique @default(uuid())
+  id String @id @default(uuid())
   joinedAt DateTime @default(now())
   status      PlayerStatus @default(WAITING)
   readyAt DateTime
@@ -150,11 +155,11 @@ model RoomUser {
 }
 
 model Question {
-  id String @unique @default(uuid())
-  test String
+  id String @id @default(uuid())
+  text String
   options Json
   correctOption String
-  cotegory QuestionCategory
+  category QuestionCategory
   baseDifficulty Difficulty @default(EASY)
   approved Boolean @default(false)
   usedCount     Int               @default(0)
@@ -166,13 +171,13 @@ model Question {
   answers Answer[]
 
   //Indexing
-  @@index([cotegory])
+  @@index([category])
   @@index([baseDifficulty])
   @@index([approved])
 }
 
 model Round {
-  id String @unique @default(uuid())
+  id String @id @default(uuid())
   number Int // Round #1, #2, etc.
   difficulty Difficulty @default(EASY)
   startTime     DateTime     @default(now())
@@ -283,11 +288,3 @@ model Reward {
   
   @@index([userId, type])
 }
-
-enum RewardType {
-  POINTS
-  BADGE
-  CURRENCY
-}
-
-

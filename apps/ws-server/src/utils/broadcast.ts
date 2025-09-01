@@ -9,6 +9,11 @@ export const broadcastToRoom = (
     roomId: string,
     message: any
 ): void => {
+    wsLogger.debug('Broadcasting to room', {
+        roomId,
+        type: message.type,
+        clients: wss.clients.size
+    });
     const payload = JSON.stringify(message);
     let count = 0;
 

@@ -12,6 +12,7 @@
   "description": "",
   "dependencies": {
     "@repo/logger": "*",
+    "@repo/room-manager": "*",
     "@repo/db": "*",
     "@repo/redis": "*",
     "@repo/types": "*",
