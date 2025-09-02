@@ -5,6 +5,7 @@ import { applyAuthToWSS } from "./middleware/auth.middleware";
 import { wsLogger } from "@repo/logger";
 import { wsConnectionLogger, wsErrorLogger, wsMessageLogger } from "./middleware/logging.middleware";
 import dotenv from "dotenv";
+import { handleMessage } from "./handlers/messageHandler";
 dotenv.config({ path: "../../.env" }); // load root env
 
 
@@ -15,7 +16,6 @@ const wss = new WebSocketServer({ port: PORT });
 
 // Apply authentication middleware
 applyAuthToWSS(wss);
-
 
 // Initialize battle manager
 // const battleManager = new BattleManager(wss);
@@ -29,17 +29,16 @@ wss.on('connection', (ws: WebSocket & {
     wsConnectionLogger(ws);
     // Set up event handlers directly
 
-    ws.on("message", (data, isBinary) => {
-        console.log("🚀 ~ message:", data.toString());
+    ws.on("message", async (data, isBinary) => {
         wsMessageLogger(ws, data.toString());
-        // try {
-        //     battleManager.handleMessage(ws, data);
-        // } catch (error) {
-        //     wsLogger.error('Error handling message', {
-        //         error: (error as Error).message,
-        //         userId: ws.userId
-        //     });
-        // }
+        try {
+            await handleMessage(ws, JSON.parse(data.toString()));
+        } catch (error) {
+            wsLogger.error('Error handling message', {
+                error: (error as Error).message,
+                userId: ws.userId
+            });
+        }
     });
 
 //     /fix Conversion of type 'ErrorEvent' to type 'Error' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.

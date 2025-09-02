@@ -1,7 +1,6 @@
 {
-  "name": "@repo/types",
+  "name": "@repo/room-manager",
   "version": "1.0.0",
-  "description": "interface types",
   "main": "index.js",
   "scripts": {
     "build": "tsc",
@@ -14,6 +13,14 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "dependencies": {
+    "@repo/db": "*",
+    "@repo/redis": "*",
+    "@repo/types": "*",
+    "@repo/zod": "*"
+  },
+  "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "description": ""
 }
