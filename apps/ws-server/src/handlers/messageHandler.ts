@@ -1,6 +1,6 @@
 
 import { WebSocket } from "ws";
-import { battleLogger } from "@repo/logger";
+import { battleLogger, wsLogger } from "@repo/logger";
 import { RoomManager } from "@repo/room-manager";
 import { GameMode, RoomType } from "@repo/types";
 const roomManager = new RoomManager();
@@ -11,6 +11,7 @@ export async function handleMessage(
     ws: WebSocket & { userId?: string; roomId?: string },
     message: any
 ) {
+    wsLogger.info("function [handleMessage]", {userId: ws?.userId})
     if (!ws.userId) return;
 
     switch (message.type) {
@@ -49,7 +50,7 @@ const handleJoin = async (ws: WebSocket & { userId?: string; roomId?: string }, 
 
     let roomId: string;
 
-    if (payload.roomId) {
+    if (payload?.roomId) {
         roomId = payload?.roomId
     } else {
         roomId = await roomManager.getPublicRoom(ws?.userId);

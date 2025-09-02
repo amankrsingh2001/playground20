@@ -7,12 +7,18 @@ import {
     GET_PUBLIC_ROOM_SCRIPT
 } from "./lua"
 import {
-    RoomType,
+    // RoomType,
     GameMode,
     RoomSettings,
     PlayerStatus,
+    RoomStatus,
     Difficulty
 } from '@repo/types';
+import { roomLogger } from "@repo/logger";
+export enum RoomType {
+    PRIVATE = "PRIVATE",
+    PUBLIC = "PUBLIC"
+}
 
 export class RoomManager {
     private static readonly DEFAULT_CAPACITY = 20;
@@ -27,7 +33,7 @@ export class RoomManager {
         hostId: string,
         settings?: Partial<RoomSettings>
     ): Promise<{ roomId: string; inviteCode?: string }> {
-        const roomId = `room_${Date.now()}_${Math.random().toString(36).slice(2, 2 + RoomManager.INVITE_CODE_LENGTH) }`;
+        const roomId = `room_${Date.now()}_${Math.random().toString(36).slice(2, 2 + RoomManager.INVITE_CODE_LENGTH)}`;
         const inviteCode = type === RoomType.PRIVATE
             ? this.generateInviteCode()
             : undefined;
@@ -67,20 +73,28 @@ export class RoomManager {
         settings: RoomSettings
     ) {
         const client = Redis.client.getInstance();
+        // console.log("🚀 ~ RoomManager ~ storeRoomInRedis ~ client:", client)
 
-        await client.multi()
-            .hset(`room:${roomId}:meta`, {
-                type,
-                mode: settings.gameMode,
-                hostId,
-                status: 'waiting',
-                capacity: RoomManager.DEFAULT_CAPACITY,
-                ...settings
-            })
-            .sadd(`room:${roomId}:members`)
-            .hset(`room:${roomId}:status`)
-            .exec();
+        try{
+            const response = await client.multi()
+                .hset(`room:${roomId}:meta`, {
+                    type,
+                    mode: settings.gameMode,
+                    hostId,
+                    status: RoomStatus.WAITING,
+                    capacity: RoomManager.DEFAULT_CAPACITY,
+                    ...settings
+                })
+                .sadd(`room:${roomId}:members`, hostId)
+                .hset(`room:${roomId}:status`, hostId, RoomStatus.WAITING)
+                .exec();
+
+        } catch(error) {
+            console.error(error);
+        }
+
     }
+
 
     /**
      * Store room metadata in database
@@ -110,172 +124,174 @@ export class RoomManager {
                 eliminationCount: settings.eliminationCount,
                 difficultyIncrement: settings.difficultyIncrement,
             }
-    });
-}
+        });
+    }
 
-  /**
-   * Join a room (public or private)
-   */
-  async joinRoom(
-    userId: string,
-    roomId: string,
-    inviteCode ?: string
-): Promise < number > {
-    // For private rooms, validate the invite code
-    if(inviteCode) {
-        const storedCode = await this.validatePrivateCode(inviteCode);
-        if (!storedCode || storedCode !== roomId) {
-            throw new Error("Invalid invite code");
+    /**
+     * Join a room (public or private)
+     */
+    async joinRoom(
+        userId: string,
+        roomId: string,
+        inviteCode?: string
+    ): Promise<number> {
+        // For private rooms, validate the invite code
+        if (inviteCode) {
+            const storedCode = await this.validatePrivateCode(inviteCode);
+            if (!storedCode || storedCode !== roomId) {
+                throw new Error("Invalid invite code");
+            }
         }
-    }
 
-    const result = await Redis.client.getInstance().eval(
-        JOIN_ROOM_SCRIPT,
-        1,
-        roomId,
-        userId
-    );
-
-    if(result === -1) throw new Error("Room full");
-if (result === -2) throw new Error("Room not found");
-
-return result as number;
-  }
-
-  /**
-   * Leave a room
-   */
-  async leaveRoom(
-    userId: string,
-    roomId: string
-): Promise < number > {
-    return(await Redis.client.getInstance().eval(
-        LEAVE_ROOM_SCRIPT,
-        1,
-        roomId,
-        userId
-    )) as number;
-}
-
-  /**
-   * Validate private room code
-   */
-  async validatePrivateCode(code: string): Promise < string | null > {
-    return Redis.client.getInstance().get(`private_room:codes:${code}`);
-}
-
-  /**
-   * Find an available public room (auto-balanced)
-   */
-  async getPublicRoom(userId?: string): Promise < string > {
-    const roomId = await Redis.client.getInstance().eval(
-        GET_PUBLIC_ROOM_SCRIPT,
-        0
-    ) as string | undefined;
-
-      if (roomId && typeof roomId === "string") {
-          return roomId;
-      }
-
-    // Create a new public room if none available
-    if(userId) {
-        const { roomId: newRoomId } = await this.createRoom(
-            RoomType.PUBLIC,
-            GameMode.CLASSIC,
-            userId,
+        const result = await Redis.client.getInstance().eval(
+            JOIN_ROOM_SCRIPT,
+            1,
+            roomId,
+            userId
         );
-        return newRoomId;
+
+        if (result === -1) throw new Error("Room full");
+        if (result === -2) throw new Error("Room not found");
+
+        return result as number;
     }
-    return "";
-}
 
-  /**
-   * Get room mode
-   */
-  async getRoomMode(roomId: string): Promise < GameMode > {
-    const mode = await Redis.client.getInstance().hget(`room:${roomId}:meta`, 'mode');
-    return mode as GameMode || GameMode.CLASSIC;
-}
+    /**
+     * Leave a room
+     */
+    async leaveRoom(
+        userId: string,
+        roomId: string
+    ): Promise<number> {
+        return (await Redis.client.getInstance().eval(
+            LEAVE_ROOM_SCRIPT,
+            1,
+            roomId,
+            userId
+        )) as number;
+    }
 
-  /**
-   * Set player ready status
-   */
-  async setPlayerReady(
-    roomId: string,
-    userId: string,
-    isReady: boolean
-): Promise < void> {
-    await Redis.client.getInstance().hset(
-        `room:${roomId}:status`,
-        userId,
-        isReady ? 'ready' : 'waiting'
-    );
-}
+    /**
+     * Validate private room code
+     */
+    async validatePrivateCode(code: string): Promise<string | null> {
+        return Redis.client.getInstance().get(`private_room:codes:${code}`);
+    }
 
-  /**
-   * Check if all players are ready
-   */
-  async areAllPlayersReady(roomId: string): Promise < boolean > {
-    const status = await Redis.client.getInstance().hgetall(`room:${roomId}:status`);
-    return Object.values(status).every(s => s === 'ready');
-}
+    /**
+     * Find an available public room (auto-balanced)
+     */
+    async getPublicRoom(userId?: string): Promise<string> {
+        roomLogger.info(`Entering [getPublicRoom] userId: ${userId}`)
+        const roomId = await Redis.client.getInstance().eval(
+            GET_PUBLIC_ROOM_SCRIPT,
+            0
+        ) as string | undefined;
 
-  /**
-   * Get room settings
-   */
-//   async getRoomSettings(roomId: string): Promise < RoomSettings > {
-//     const meta = await Redis.client.getInstance().hgetall(`room:${roomId}:meta`);
+        if (roomId && typeof roomId === "string") {
+            return roomId;
+        }
 
-//     return {
-//         gameMode: meta.mode as GameMode || GameMode.CLASSIC,
-//         questionLimit: parseInt(meta.questionLimit) || 20,
-//         timePerQuestion: parseInt(meta.timePerQuestion) || 10,
-//         difficultyProgression: meta.difficultyProgression === 'true',
-//         initialDifficulty: parseInt(meta.initialDifficulty) || 1,
-//         maxDifficulty: parseInt(meta.maxDifficulty) || 5,
-//         eliminationCount: parseInt(meta.eliminationCount) || 2,
-//         difficultyIncrement: parseInt(meta.difficultyIncrement) || 1
-//     };
-// }
+        // Create a new public room if none available
+        if (userId) {
+            console.log("🚀 ~ RoomManager ~ getPublicRoom ~ RoomType:", RoomType)
+            const { roomId: newRoomId } = await this.createRoom(
+                RoomType.PUBLIC,
+                GameMode.CLASSIC,
+                userId,
+            );
+            return newRoomId;
+        }
+        return "";
+    }
 
-  /**
-   * Update room status
-   */
-  async updateRoomStatus(
-    roomId: string,
-    status: 'WAITING' | 'ACTIVE' | 'ENDED'
-): Promise < void> {
-    await Redis.client.getInstance().hset(
-        `room:${roomId}:meta`,
-        'status',
-        status.toLowerCase()
-    );
-}
+    /**
+     * Get room mode
+     */
+    async getRoomMode(roomId: string): Promise<GameMode> {
+        const mode = await Redis.client.getInstance().hget(`room:${roomId}:meta`, 'mode');
+        return mode as GameMode || GameMode.CLASSIC;
+    }
 
-  /**
-   * Remove player from room
-   */
-  async removePlayer(
-    roomId: string,
-    userId: string
-): Promise < void> {
-    await Redis.client.getInstance().srem(
-        `room:${roomId}:members`,
-        userId
-    );
+    /**
+     * Set player ready status
+     */
+    async setPlayerReady(
+        roomId: string,
+        userId: string,
+        isReady: boolean
+    ): Promise<void> {
+        await Redis.client.getInstance().hset(
+            `room:${roomId}:status`,
+            userId,
+            isReady ? 'ready' : 'waiting'
+        );
+    }
 
-    await Redis.client.getInstance().hdel(
-        `room:${roomId}:status`,
-        userId
-    );
-}
+    /**
+     * Check if all players are ready
+     */
+    async areAllPlayersReady(roomId: string): Promise<boolean> {
+        const status = await Redis.client.getInstance().hgetall(`room:${roomId}:status`);
+        return Object.values(status).every(s => s === 'ready');
+    }
 
-  /**
-   * Generate random invite code
-   */
-  private generateInviteCode(): string {
-    return Math.random()
-        .toString(36).slice(2, 2 + RoomManager.INVITE_CODE_LENGTH)
-        .toUpperCase();
-}
+    /**
+     * Get room settings
+     */
+    //   async getRoomSettings(roomId: string): Promise < RoomSettings > {
+    //     const meta = await Redis.client.getInstance().hgetall(`room:${roomId}:meta`);
+
+    //     return {
+    //         gameMode: meta.mode as GameMode || GameMode.CLASSIC,
+    //         questionLimit: parseInt(meta.questionLimit) || 20,
+    //         timePerQuestion: parseInt(meta.timePerQuestion) || 10,
+    //         difficultyProgression: meta.difficultyProgression === 'true',
+    //         initialDifficulty: parseInt(meta.initialDifficulty) || 1,
+    //         maxDifficulty: parseInt(meta.maxDifficulty) || 5,
+    //         eliminationCount: parseInt(meta.eliminationCount) || 2,
+    //         difficultyIncrement: parseInt(meta.difficultyIncrement) || 1
+    //     };
+    // }
+
+    /**
+     * Update room status
+     */
+    async updateRoomStatus(
+        roomId: string,
+        status: 'WAITING' | 'ACTIVE' | 'ENDED'
+    ): Promise<void> {
+        await Redis.client.getInstance().hset(
+            `room:${roomId}:meta`,
+            'status',
+            status.toLowerCase()
+        );
+    }
+
+    /**
+     * Remove player from room
+     */
+    async removePlayer(
+        roomId: string,
+        userId: string
+    ): Promise<void> {
+        await Redis.client.getInstance().srem(
+            `room:${roomId}:members`,
+            userId
+        );
+
+        await Redis.client.getInstance().hdel(
+            `room:${roomId}:status`,
+            userId
+        );
+    }
+
+    /**
+     * Generate random invite code
+     */
+    private generateInviteCode(): string {
+        return Math.random()
+            .toString(36).slice(2, 2 + RoomManager.INVITE_CODE_LENGTH)
+            .toUpperCase();
+    }
 }
