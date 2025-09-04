@@ -6,10 +6,10 @@ declare global {
         interface Request {
             auth?: {
                 userInfo?: {
-                    id: string;
-                    email: string;
-                    fullName: string;
-                    profileImage: string;
+                    id?: string ;
+                    email?: string;
+                    fullName?: string;
+                    profileImage?: string;
                 };
             };
             context?: {

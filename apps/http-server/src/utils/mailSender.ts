@@ -1,5 +1,7 @@
-import nodemailer from "nodemailer"
+
 import { ApiError } from "./ApiError"
+import nodemailer from "nodemailer"
+
 
 
 export const sendMail = async(email:string, title:string, body:string)=>{

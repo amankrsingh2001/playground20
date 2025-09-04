@@ -1,4 +1,6 @@
 import { format } from "winston";
+import type { Format } from "logform";
+
 
 export const developmentFormat = format.combine(
     format.colorize(),

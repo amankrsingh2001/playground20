@@ -31,8 +31,9 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
     }
 
     req.auth = {
-        userInfo,
+        userInfo
     }
+
     req.context = {
         deviceId: userDetails?.data?.deviceId,
         ipAddress: userDetails?.data?.ipAddress,

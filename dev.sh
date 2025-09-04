@@ -10,8 +10,8 @@ if [[ "$DATABASE_URL" == *"neon.tech"* || "$DATABASE_URL" == *"supabase.co"* || 
   echo "🟢 Detected cloud database — skipping Docker setup."
 else
   echo "🟡 Using local database — starting Docker..."
-  npm run docker:up
+  pnpm docker:up
 fi
 
 # Start TurboRepo dev
-npx turbo run dev
+pnpm turbo run dev

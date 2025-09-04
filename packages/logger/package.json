@@ -1,7 +1,8 @@
 {
   "name": "@repo/logger",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch"
@@ -20,6 +21,12 @@
   "dependencies": {
     "axios": "^1.11.0",
     "winston": "^3.17.0",
-    "winston-daily-rotate-file": "^5.0.0"
+    "winston-daily-rotate-file": "^5.0.0",
+    "winston-transport": "^4.9.0"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/logform": "^1.10.1",
+    "logform": "^2.7.0"
   }
 }

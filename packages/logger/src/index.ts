@@ -3,12 +3,10 @@ import { ConsoleTransport } from './transports/console';
 import { FileTransport } from './transports/file';
 import { HttpTransport } from './transports/http';
 import { developmentFormat } from './formats/development';
-import { productionFormat } from './formats/production';
-import { HttpRequest } from './types';
 import dotenv from "dotenv";
 dotenv.config({ path: "../../.env" }); // load root env
 
-interface LoggerOptions {
+interface LoggerOption {
     serviceName: string;
     level?: string;
     enableConsole?: boolean;
@@ -20,7 +18,7 @@ export class AppLogger {
     private logger: winston.Logger;
     private serviceName: string;
 
-    constructor(options: LoggerOptions) {
+    constructor(options: LoggerOption) {
         this.serviceName = options.serviceName;
 
         const transports: winston.transport[] = [];

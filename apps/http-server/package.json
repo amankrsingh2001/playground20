@@ -11,14 +11,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@repo/db": "*",
-    "@repo/redis": "*",
-    "@repo/types": "*",
-    "@repo/zod": "*",
+    "@repo/db": "workspace:*",
+    "@repo/redis": "workspace:*",
+    "@repo/types": "workspace:*",
+    "@repo/zod": "workspace:*",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.9",
     "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/otp-generator": "^4.0.2",
     "bcrypt": "^6.0.0",
@@ -35,6 +34,9 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/express": "^5.0.3",
+    "@types/nodemailer": "^6.4.17",
     "@types/swagger-ui-express": "^4.1.8"
   }
 }

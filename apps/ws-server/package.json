@@ -1,7 +1,7 @@
 {
   "name": "ws-server",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc -b",
     "dev": "tsc -b && node dist/index.js"
@@ -11,12 +11,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@repo/logger": "*",
-    "@repo/room-manager": "*",
-    "@repo/db": "*",
-    "@repo/redis": "*",
-    "@repo/types": "*",
-    "@repo/zod": "*",
+    "@repo/logger": "workspace:*",
+    "@repo/db": "workspace:*",
+    "@repo/redis": "workspace:*",
+    "@repo/types": "workspace:*",
+    "@repo/zod": "workspace:*",
+    "@repo/room-manager": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
     "@types/winston": "^2.4.4",
     "@types/ws": "^8.18.1",
     "winston": "^3.17.0",
