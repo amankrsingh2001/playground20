@@ -1,4 +1,4 @@
-import Redis from '@repo/redis';
+import Redis, { redis } from '@repo/redis';
 import { prismaClient } from '@repo/db';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -29,7 +29,7 @@ export class RoomManager {
      */
     async createRoom(
         type: RoomType,
-        mode: GameMode = GameMode.CLASSIC,
+        mode: GameMode = GameMode.BATTLE_ROYALE,
         hostId: string,
         settings?: Partial<RoomSettings>
     ): Promise<{ roomId: string; inviteCode?: string }> {
@@ -46,7 +46,7 @@ export class RoomManager {
             ...(mode === GameMode.BATTLE_ROYALE && {
                 eliminationCount: 2,
                 difficultyProgression: true,
-                initialDifficulty: Difficulty.EASY,
+                initialDifficulty: 1,
                 maxDifficulty: 5,
                 difficultyIncrement: 1
             })
@@ -73,23 +73,22 @@ export class RoomManager {
         settings: RoomSettings
     ) {
         const client = Redis.client.getInstance();
-        // console.log("🚀 ~ RoomManager ~ storeRoomInRedis ~ client:", client)
+        try {
+            await redis.hsetAll(
+                `room:${roomId}:meta`,
+                Object.fromEntries(
+                    Object.entries({
+                        type,
+                        mode: settings.gameMode,
+                        hostId,
+                        status: RoomStatus.WAITING,
+                        capacity: RoomManager.DEFAULT_CAPACITY.toString(),
+                        ...settings,
+                    }).map(([key, value]) => [key, value !== undefined ? String(value) : ""])
+                )
+            );
 
-        try{
-            const response = await client.multi()
-                .hset(`room:${roomId}:meta`, {
-                    type,
-                    mode: settings.gameMode,
-                    hostId,
-                    status: RoomStatus.WAITING,
-                    capacity: RoomManager.DEFAULT_CAPACITY,
-                    ...settings
-                })
-                .sadd(`room:${roomId}:members`, hostId)
-                .hset(`room:${roomId}:status`, hostId, RoomStatus.WAITING)
-                .exec();
-
-        } catch(error) {
+        } catch (error) {
             console.error(error);
         }
 
@@ -119,13 +118,38 @@ export class RoomManager {
                 questionLimit: settings.questionLimit,
                 timePerQuestion: settings.timePerQuestion,
                 difficultyProgression: settings.difficultyProgression,
-                initialDifficulty: settings.initialDifficulty,
+                initialDifficulty: this.mapDifficultyToEnum(settings?.initialDifficulty || 1),
                 // maxDifficulty: settings.maxDifficulty,
                 eliminationCount: settings.eliminationCount,
                 difficultyIncrement: settings.difficultyIncrement,
             }
         });
     }
+
+
+    /**
+ * Map numeric difficulty to Prisma enum
+ */
+    private mapDifficultyToEnum(difficulty: number): 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT' | 'MASTER' {
+        if (difficulty <= 1) return 'EASY';
+        if (difficulty <= 2) return 'MEDIUM';
+        if (difficulty <= 3) return 'HARD';
+        if (difficulty <= 4) return 'EXPERT';
+        return 'MASTER';
+    }
+
+    /**
+     * Map prisma enum to number
+     */
+
+    private mapEnumToDifficulty(difficulty: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT' | 'MASTER'): number  {
+        if (difficulty === 'EASY') return 1;
+        if (difficulty === 'MEDIUM') return 2;
+        if (difficulty === 'HARD') return 3;
+        if (difficulty === 'EXPERT') return 4;
+        return 5
+    }
+
 
     /**
      * Join a room (public or private)
@@ -152,6 +176,7 @@ export class RoomManager {
 
         if (result === -1) throw new Error("Room full");
         if (result === -2) throw new Error("Room not found");
+        if (result === -3) throw new Error("User already in room");
 
         return result as number;
     }
@@ -194,10 +219,9 @@ export class RoomManager {
 
         // Create a new public room if none available
         if (userId) {
-            console.log("🚀 ~ RoomManager ~ getPublicRoom ~ RoomType:", RoomType)
             const { roomId: newRoomId } = await this.createRoom(
                 RoomType.PUBLIC,
-                GameMode.CLASSIC,
+                GameMode.BATTLE_ROYALE,
                 userId,
             );
             return newRoomId;
@@ -209,7 +233,7 @@ export class RoomManager {
      * Get room mode
      */
     async getRoomMode(roomId: string): Promise<GameMode> {
-        const mode = await Redis.client.getInstance().hget(`room:${roomId}:meta`, 'mode');
+        const mode = await redis.hget(`room:${roomId}:meta`, 'mode');
         return mode as GameMode || GameMode.CLASSIC;
     }
 
@@ -239,59 +263,57 @@ export class RoomManager {
     /**
      * Get room settings
      */
-    //   async getRoomSettings(roomId: string): Promise < RoomSettings > {
-    //     const meta = await Redis.client.getInstance().hgetall(`room:${roomId}:meta`);
-
-    //     return {
-    //         gameMode: meta.mode as GameMode || GameMode.CLASSIC,
-    //         questionLimit: parseInt(meta.questionLimit) || 20,
-    //         timePerQuestion: parseInt(meta.timePerQuestion) || 10,
-    //         difficultyProgression: meta.difficultyProgression === 'true',
-    //         initialDifficulty: parseInt(meta.initialDifficulty) || 1,
-    //         maxDifficulty: parseInt(meta.maxDifficulty) || 5,
-    //         eliminationCount: parseInt(meta.eliminationCount) || 2,
-    //         difficultyIncrement: parseInt(meta.difficultyIncrement) || 1
-    //     };
-    // }
+    async getRoomSettings(roomId: string): Promise<RoomSettings> {
+        const meta = await Redis.client.getInstance().hgetall(`room:${roomId}:meta`);
+        return {
+            gameMode: (meta.mode as GameMode) || GameMode.CLASSIC,
+            questionLimit: meta.questionLimit ? parseInt(meta.questionLimit) : 20,
+            timePerQuestion: meta.timePerQuestion ? parseInt(meta.timePerQuestion) : 10,
+            difficultyProgression: meta.difficultyProgression === "true",
+            initialDifficulty: meta.initialDifficulty ? parseInt(meta.initialDifficulty) : 1,
+            eliminationCount: meta.eliminationCount ? parseInt(meta.eliminationCount) : 2,
+            difficultyIncrement: meta.difficultyIncrement ? parseInt(meta.difficultyIncrement) : 1,
+        };
+}
 
     /**
      * Update room status
      */
     async updateRoomStatus(
-        roomId: string,
-        status: 'WAITING' | 'ACTIVE' | 'ENDED'
-    ): Promise<void> {
-        await Redis.client.getInstance().hset(
-            `room:${roomId}:meta`,
-            'status',
-            status.toLowerCase()
-        );
-    }
+    roomId: string,
+    status: 'WAITING' | 'ACTIVE' | 'ENDED'
+): Promise < void> {
+    await Redis.client.getInstance().hset(
+        `room:${roomId}:meta`,
+        'status',
+        status.toLowerCase()
+    );
+}
 
     /**
      * Remove player from room
      */
     async removePlayer(
-        roomId: string,
-        userId: string
-    ): Promise<void> {
-        await Redis.client.getInstance().srem(
-            `room:${roomId}:members`,
-            userId
-        );
+    roomId: string,
+    userId: string
+): Promise < void> {
+    await Redis.client.getInstance().srem(
+        `room:${roomId}:members`,
+        userId
+    );
 
-        await Redis.client.getInstance().hdel(
-            `room:${roomId}:status`,
-            userId
-        );
-    }
+    await Redis.client.getInstance().hdel(
+        `room:${roomId}:status`,
+        userId
+    );
+}
 
     /**
      * Generate random invite code
      */
     private generateInviteCode(): string {
-        return Math.random()
-            .toString(36).slice(2, 2 + RoomManager.INVITE_CODE_LENGTH)
-            .toUpperCase();
-    }
+    return Math.random()
+        .toString(36).slice(2, 2 + RoomManager.INVITE_CODE_LENGTH)
+        .toUpperCase();
+}
 }

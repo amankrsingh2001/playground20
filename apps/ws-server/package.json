@@ -11,6 +11,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@repo/battle-logic": "workspace:*",
     "@repo/logger": "workspace:*",
     "@repo/db": "workspace:*",
     "@repo/redis": "workspace:*",

@@ -20,8 +20,8 @@ export interface RoomSettings {
     questionLimit: number;
     timePerQuestion: number;
     difficultyProgression?: boolean;
-    initialDifficulty?: Difficulty;
-    // maxDifficulty?: number;
+    initialDifficulty?: number;
+    maxDifficulty?: number;
     eliminationCount?: number;
     difficultyIncrement?: number;
 }

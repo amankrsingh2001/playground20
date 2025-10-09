@@ -182,5 +182,11 @@ export const roomLogger = new AppLogger({
     // enableHttp: true
 });
 
+export const workerLogger = new AppLogger({
+    serviceName: 'worker',
+    level: process.env.ROOM_LOG_LEVEL || 'info',
+    enableConsole: true
+})
+
 // Default export
 export default apiLogger;
