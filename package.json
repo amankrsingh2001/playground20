@@ -9,7 +9,6 @@
     "lint": "turbo run lint",
     "check-types": "turbo run check-types",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
-  
   },
   "devDependencies": {
     "prettier": "^3.6.0",
@@ -28,6 +27,7 @@
     "@types/nodemailer": "^6.4.17",
     "dotenv": "^17.2.1",
     "nodemailer": "^7.0.5",
+    "ws": "^8.18.3",
     "zod": "^4.0.14"
   }
 }

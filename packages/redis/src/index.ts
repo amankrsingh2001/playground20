@@ -1,5 +1,5 @@
 import { SessionManager } from "./session";
-import { GetSetUtils, HashUtils, ListUtils } from "./utils";
+import { GetSetUtils, HashUtils, ListUtils, ZSetUtils, SetUtils } from "./utils";
 import { RedisClient } from "./client/redis.client";
 
 // Export everything from submodules
@@ -10,6 +10,7 @@ import { RedisClient } from "./client/redis.client";
 
 // Named exports for convenience
 export const session = SessionManager;
+export { RedisKeys } from "./keys";
 export const redis = {
     get: GetSetUtils.get,
     set: GetSetUtils.set,
@@ -33,6 +34,11 @@ export const redis = {
     lpop: ListUtils.lpop,
     rpop: ListUtils.rpop,
     ltrim: ListUtils.ltrim,
+    zadd: ZSetUtils.zadd,
+    zincrby: ZSetUtils.zincrby,
+    sadd: SetUtils.sadd,
+    scard: SetUtils.scard,
+    smembers: SetUtils.smembers,
     trackConnection: RedisClient.trackConnection,
     removeConnection: RedisClient.removeConnection,
     getConnectionCount: RedisClient.getConnectionCount,
@@ -45,7 +51,9 @@ export default {
     utils: {
         getSet: GetSetUtils,
         hash: HashUtils,
-        list: ListUtils
+        list: ListUtils,
+        zset: ZSetUtils,
+        set: SetUtils,
     },
     client: RedisClient
 };
