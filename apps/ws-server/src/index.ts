@@ -32,7 +32,7 @@ wss.on('connection', (ws: WebSocket & {
     ws.on("message", async (data, isBinary) => {
         wsMessageLogger(ws, data.toString());
         try {
-            await handleMessage(ws, JSON.parse(data.toString()));
+            await handleMessage(ws, wss, JSON.parse(data.toString()));
         } catch (error) {
             wsLogger.error('Error handling message', {
                 error: (error as Error).message,

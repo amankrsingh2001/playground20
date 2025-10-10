@@ -35,4 +35,8 @@ export class GetSetUtils {
     static async ttl(key: string): Promise<number> {
         return RedisClient.getInstance().ttl(key);
     }
+
+    static async scard(key: string): Promise<number> {
+        return RedisClient.getInstance().scard(key);
+    }
 }

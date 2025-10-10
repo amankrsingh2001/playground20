@@ -18,6 +18,11 @@ local userId = ARGV[1]
 local capacity = tonumber(redis.call('hget', 'room:' .. roomId .. ':meta', 'capacity'))
 local memberCount = redis.call('scard', 'room:' .. roomId .. ':members')
 
+-- Check if user is already in the room
+if redis.call('sismember', 'room:' .. roomId .. ':members', userId) == 1 then
+  return -3  -- Already joined
+end
+
 -- Check if room exists
 if not capacity then
   return -2
@@ -31,13 +36,16 @@ end
 -- Add user to room
 redis.call('sadd', 'room:' .. roomId .. ':members', userId)
 redis.call('hset', 'room:' .. roomId .. ':status', userId, 'waiting')
+-- Log for debugging
+redis.log(redis.LOG_WARNING, "Joining room: " .. roomId .. ", user: " .. userId)
 
 -- Update public room count if applicable
 local roomType = redis.call('hget', 'room:' .. roomId .. ':meta', 'type')
-if roomType == 'public' then
+redis.log(redis.LOG_WARNING, "Room type: " .. (roomType or "nil"))
+if roomType == 'PUBLIC' then
   redis.call('zincrby', 'public_rooms', 1, roomId)
+  redis.log(redis.LOG_WARNING, "Room type inside the public room: " .. (roomType or "nil"))
 end
-
 return memberCount + 1
 `;
 
