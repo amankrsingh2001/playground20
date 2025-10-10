@@ -16,6 +16,6 @@
     "next-env.d.ts",
     "next.config.ts",
     ".next/types/**/*.ts"
-, "../components/ui/button.tsx", "../../packages/ui/lib/utils.ts"  ],
+, "../components/ui/button.tsx", "../../packages/ui/lib/utils.ts", "../../packages/ui/src/input.tsx", "../../packages/ui/src/label.tsx", "../../packages/ui/src/card.tsx", "../../packages/ui/src/button.tsx"  ],
   "exclude": ["node_modules"]
 }
