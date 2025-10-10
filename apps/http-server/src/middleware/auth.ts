@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ApiError } from "../utils/ApiError";
-import { redis, session } from "@repo/redis";
+import { session } from "@repo/redis";
 import { UserInfo } from "@repo/types";
 
 const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
