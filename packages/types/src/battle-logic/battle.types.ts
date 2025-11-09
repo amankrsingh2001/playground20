@@ -24,4 +24,6 @@ export interface RoomSettings {
     maxDifficulty?: number;
     eliminationCount?: number;
     difficultyIncrement?: number;
+    questionsPerRound: number;
+    roundLimit: number;
 }

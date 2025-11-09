@@ -66,6 +66,7 @@ export const authenticateWebSocket = async (
             fullName: data?.fullName ?? "",
             profileImage: data?.profileImage ?? "",
         };
+        console.log("🚀 ~ authenticateWebSocket ~ userInfo:", userInfo)
 
         ws.userId = userId;
         ws.userInfo = userInfo;

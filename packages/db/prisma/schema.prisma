@@ -84,7 +84,7 @@ model User {
   loginAttempt Int       @default(0)
   isBanned     Boolean   @default(false)
   banReason    String?
-  banExpiresAt  DateTime?
+  banExpiresAt DateTime?
 
   //Relationships
   rooms       RoomUser[]
@@ -100,19 +100,20 @@ model User {
 }
 
 model Room {
-  id         String     @id @default(uuid())
-  slug       String     @unique
-  type       RoomType   @default(PUBLIC)
-  status     RoomStatus @default(WAITING)
-  capacity   Int        @default(20)
-  inviteCode String     @unique
-  createdAt  DateTime   @default(now())
-  expiresAt  DateTime?
-  currentRound Int
+  id           String     @id @default(uuid())
+  slug         String     @unique
+  type         RoomType   @default(PUBLIC)
+  status       RoomStatus @default(WAITING)
+  capacity     Int        @default(20)
+  inviteCode   String     @unique
+  createdAt    DateTime   @default(now())
+  expiresAt    DateTime?
+  currentRound Int        @default(1)
 
   //Game settings
   gameMode              GameMode   @default(CLASSIC)
   questionLimit         Int        @default(20)
+  roundLimit            Int        @default(3)
   timePerQuestion       Int        @default(30)
   difficultyProgression Boolean    @default(false)
   initialDifficulty     Difficulty @default(EASY)
@@ -183,7 +184,7 @@ model RoundQuestion {
   id         String @id @default(uuid())
   roundId    String
   questionId String
-  order      Int 
+  order      Int
 
   round    Round    @relation(fields: [roundId], references: [id])
   question Question @relation(fields: [questionId], references: [id])

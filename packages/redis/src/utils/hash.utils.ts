@@ -10,8 +10,9 @@ export class HashUtils {
     }
 
     static async hsetAll(hashKey: string, values: Record<string, string>): Promise<void> {
-        await RedisClient.getInstance().hmset(hashKey, values);
+        await RedisClient.getInstance().hset(hashKey, values);
     }
+
 
     static async hgetall<T>(hashKey: string): Promise<T> {
         return RedisClient.getInstance().hgetall(hashKey) as unknown as T;

@@ -32,9 +32,7 @@ export async function processAnswer(data: {
             workerLogger.warn('No active round found', { roomId });
             return;
         }
-
         
-
     } catch (error) {
         workerLogger.error('Answer processing failed', {
             error: (error as Error).message,
