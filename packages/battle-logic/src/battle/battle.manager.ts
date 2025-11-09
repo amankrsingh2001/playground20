@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 
 export class BattleManager {
     private timers = new Map<string, ReturnType<typeof setTimeout>>();
+    private questionStartTime = new Map<string, number>();
     constructor(private wss: WebSocketServer,
         private roomManager: RoomManager
     ) { }
@@ -33,19 +34,44 @@ export class BattleManager {
         });
 
         // Wait for players to get ready
-        this.timers.set(roomId, setTimeout(() => this.startQuestion(roomId), 5000));
+        this.timers.set(roomId, setTimeout(() => this.startRound(roomId, 1), 5000));
+    }
+
+    /**
+     * Stat the Round
+     */
+
+    async startRound(roomId: string, round: number): Promise<void> {
+        const roomSettings = await this.roomManager.getRoomSettings(roomId);
+        const questionCount = roomSettings.questionsPerRound || 3;
+
+        this.broadcast(roomId, {
+            type: MessageType.ROUND_START,
+            payload: { round, message: `Round ${round} begins!` }
+        });
+
+        await redis.set(`game:${roomId}:questionIndex`, "1");
+        await redis.set(`game:${roomId}:questionsPerRound`, questionCount.toString());
+
+        // Start first question of this round
+        this.startQuestion(roomId, round, 1);
     }
 
     /**
      * Start the question
      */
 
-    async startQuestion(roomId: string): Promise<void> {
-        const round = parseInt((await redis.get(`game:${roomId}:round`)) || "1");
+    async startQuestion(roomId: string, round: number, questionIndex: number): Promise<void> {
+        // const round = parseInt((await redis.get(`game:${roomId}:round`)) || "1");
         const roomSettings = await this.roomManager.getRoomSettings(roomId);
+        const totalQuestionsInRound = roomSettings.questionsPerRound || 3;
         //   questionsPerRound
         //   initialDifficulty
         //   difficultyProgression
+
+        if(questionIndex > totalQuestionsInRound) {
+            return;
+        }
 
         // Check if game should end
         if (round > roomSettings.questionLimit) {
@@ -84,6 +110,98 @@ export class BattleManager {
         //     roomId,
         //     setTimeout(() => this.endQuestion(roomId), settings.timePerQuestion * 1000)
         // );
+    }
+
+    async endQuestion(roomId: string, round: number, questionIndex: number): Promise<void> {
+        const roomSettings = await this.roomManager.getRoomSettings(roomId);
+        const totalQuestionsInRound = roomSettings.questionsPerRound || 3;
+
+        this.broadcast(roomId, {
+            type: MessageType.END_QUESTION,
+            payload: {
+                round,
+                questionIndex,
+                message: `Question ${questionIndex} ended.`,
+            },
+        })
+
+        if (questionIndex < totalQuestionsInRound) {
+            const nextIndex = questionIndex + 1;
+            this.timers.set(
+                roomId,
+                setTimeout(() => this.startQuestion(roomId, round, nextIndex), 3000)
+            ); // 3s gap
+        } else {
+            // Round finished
+            this.endRound(roomId, round, questionIndex);
+        }
+    }
+
+    async endRound(roomId: string, round: number, questionIndex: number): Promise<void> {
+        const roomSettings = await this.roomManager.getRoomSettings(roomId);
+        const totalRounds = roomSettings.roundLimit || 3;
+
+        this.broadcast(roomId, {
+            type: MessageType.ROUND_END,
+            payload: { round, message: `Round ${round} completed!` },
+        });
+
+        if (round < totalRounds) {
+            const nextRound = round + 1;
+            await redis.set(`game:${roomId}:round`, nextRound.toString());
+            this.timers.set(roomId, setTimeout(() => this.startRound(roomId, nextRound), 5000));
+        } else {
+            this.endGame(roomId);
+        }
+    }
+
+    async endGame(roomId: string, reason?: string): Promise<void> {
+        this.clearTimer(roomId);
+        await redis.hset(`room:${roomId}:meta`, "status", "ended");
+        await prisma.room.update({ where: { id: roomId }, data: { status: "ENDED" } });
+
+        this.broadcast(roomId, {
+            type: MessageType.END,
+            payload: { message: reason || "Game Over!" },
+        });
+    }
+
+    private clearTimer(roomId: string) {
+        const timer = this.timers.get(roomId);
+        if (timer) clearTimeout(timer);
+        this.timers.delete(roomId);
+    }
+
+    async handleAnswer(
+        roomId: string,
+        userId: string,
+        selectedOption: string
+    ) {
+        const startTime = this.questionStartTime.get(roomId);
+        if (!startTime) return;
+
+        const timeTakenMs = Date.now() - startTime;
+
+        // 1. Update Redis state IMMEDIATELY (sub-millisecond)
+        await this.updateRedisState(roomId, userId, selectedOption, timeTakenMs);
+
+        // 2. Queue DB update (non-blocking)
+        await redis.lpush('db-queue', JSON.stringify({
+            type: 'ANSWER',
+            data: {
+                roomId,
+                userId,
+                selectedOption,
+                timeTakenMs,
+                timestamp: Date.now()
+            }
+        }));
+
+        // 3. Respond to player immediately (no DB wait)
+        this.broadcast(roomId, {
+            type: MessageType.ANSWER_CONFIRMED,
+            payload: { timeTakenMs }
+        });
     }
 
     /**

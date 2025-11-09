@@ -36,3 +36,8 @@ export interface RoomSettings {
     eliminationCount?: number;
     difficultyIncrement?: number;
 }
+
+// export interface GameMetaData {
+//     round?: string,
+
+// }

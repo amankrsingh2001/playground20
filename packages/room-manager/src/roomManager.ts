@@ -43,12 +43,16 @@ export class RoomManager {
             gameMode: mode,
             questionLimit: mode === GameMode.BATTLE_ROYALE ? 10 : 20,
             timePerQuestion: 10,
+            questionsPerRound: 10,
+            roundLimit: 1,
             ...(mode === GameMode.BATTLE_ROYALE && {
                 eliminationCount: 2,
                 difficultyProgression: true,
                 initialDifficulty: 1,
+                questionsPerRound: 3,
                 maxDifficulty: 5,
-                difficultyIncrement: 1
+                difficultyIncrement: 1,
+                roundLimit: 3,
             })
         };
 
@@ -118,6 +122,8 @@ export class RoomManager {
                 questionLimit: settings.questionLimit,
                 timePerQuestion: settings.timePerQuestion,
                 difficultyProgression: settings.difficultyProgression,
+                roundLimit: settings.roundLimit,
+                currentRound: 1,
                 initialDifficulty: this.mapDifficultyToEnum(settings?.initialDifficulty || 1),
                 // maxDifficulty: settings.maxDifficulty,
                 eliminationCount: settings.eliminationCount,
@@ -269,9 +275,11 @@ export class RoomManager {
             gameMode: (meta.mode as GameMode) || GameMode.CLASSIC,
             questionLimit: meta.questionLimit ? parseInt(meta.questionLimit) : 20,
             timePerQuestion: meta.timePerQuestion ? parseInt(meta.timePerQuestion) : 10,
+            roundLimit: meta?.roundLimit ? parseInt(meta.roundLimit) : meta.mode === "CLASSIC" ? 1 : 3,
             difficultyProgression: meta.difficultyProgression === "true",
             initialDifficulty: meta.initialDifficulty ? parseInt(meta.initialDifficulty) : 1,
             eliminationCount: meta.eliminationCount ? parseInt(meta.eliminationCount) : 2,
+            questionsPerRound: meta.questionsPerRound ? parseInt(meta.questionsPerRound): 5,
             difficultyIncrement: meta.difficultyIncrement ? parseInt(meta.difficultyIncrement) : 1,
         };
 }
